@@ -1,0 +1,548 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2869
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <!DOCTYPE html>\
+<html lang="en">\
+<head>\
+    <meta charset="UTF-8">\
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">\
+    <title>SumUp Terminal Enablement Hub</title>\
+    <script src="https://cdn.tailwindcss.com"></script>\
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">\
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">\
+    \
+    <!-- Firebase Integration -->\
+    <script type="module">\
+        import \{ initializeApp \} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";\
+        import \{ getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged \} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";\
+        import \{ getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp \} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";\
+\
+        const firebaseConfig = JSON.parse(__firebase_config);\
+        const app = initializeApp(firebaseConfig);\
+        const auth = getAuth(app);\
+        const db = getFirestore(app);\
+        \
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sumup-terminal-mastery';\
+        window.appState = \{ user: null, db, appId, results: [] \};\
+\
+        async function initAuth(retryCount = 0) \{\
+            try \{\
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) \{\
+                    await signInWithCustomToken(auth, __initial_auth_token);\
+                \} else \{\
+                    await signInAnonymously(auth);\
+                \}\
+            \} catch (err) \{\
+                if (retryCount < 5) \{\
+                    const delay = Math.pow(2, retryCount) * 1000;\
+                    setTimeout(() => initAuth(retryCount + 1), delay);\
+                \}\
+            \}\
+        \}\
+\
+        onAuthStateChanged(auth, (user) => \{\
+            if (user) \{\
+                window.appState.user = user;\
+                setupLiveSync();\
+            \}\
+        \});\
+\
+        function setupLiveSync() \{\
+            if (!window.appState.user) return;\
+            const resultsRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');\
+            \
+            onSnapshot(resultsRef, (snapshot) => \{\
+                const results = [];\
+                snapshot.forEach(doc => \{\
+                    results.push(\{ ...doc.data(), id: doc.id \});\
+                \});\
+                window.appState.results = results.sort((a, b) => \{\
+                    const timeA = a.timestamp?.seconds || 0;\
+                    const timeB = b.timestamp?.seconds || 0;\
+                    return timeB - timeA;\
+                \});\
+                if (window.refreshDashboard) window.refreshDashboard();\
+            \}, (err) => \{\
+                console.error("Firestore Sync Error:", err);\
+            \});\
+        \}\
+\
+        window.submitResult = async (firstName, surname, region, score) => \{\
+            if (!window.appState.user) return false;\
+            try \{\
+                const status = score >= 80 ? 'Certified' : 'Incomplete';\
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'results'), \{\
+                    firstName,\
+                    surname,\
+                    region,\
+                    score,\
+                    status,\
+                    agentId: window.appState.user.uid,\
+                    timestamp: serverTimestamp()\
+                \});\
+                return true;\
+            \} catch (e) \{\
+                console.error("Submission Error:", e);\
+                return false;\
+            \}\
+        \};\
+\
+        initAuth();\
+    </script>\
+\
+    <style>\
+        body \{ font-family: 'Inter', sans-serif; background-color: #F3F4F6; -webkit-tap-highlight-color: transparent; \}\
+        .sumup-blue \{ background-color: #3063E9; \}\
+        .fade-in \{ animation: fadeIn 0.3s ease-out; \}\
+        @keyframes fadeIn \{ from \{ opacity: 0; transform: translateY(8px); \} to \{ opacity: 1; transform: translateY(0); \} \}\
+        \
+        @media print \{\
+            body \{ background: white !important; padding: 0 !important; margin: 0 !important; \}\
+            .no-print \{ display: none !important; \}\
+            #main-nav, #view-home, #view-quiz, #view-admin, #modal-confirm \{ display: none !important; \}\
+            #view-cert \{ display: block !important; padding: 0 !important; width: 100% !important; \}\
+            #certificate-layout \{ \
+                border: 2px solid #e2e8f0 !important; \
+                box-shadow: none !important; \
+                margin: 0 auto !important; \
+                width: 100% !important;\
+                page-break-inside: avoid;\
+            \}\
+            .bg-pattern \{ display: none !important; \}\
+            .logo-mark \{ background-color: black !important; \}\
+            h3, p \{ color: black !important; \}\
+        \}\
+\
+        .option-card \{ transition: all 0.2s ease; cursor: pointer; border-width: 2px; \}\
+        .option-card.selected \{ border-color: #3063E9; background-color: #f0f4ff; border-width: 3px; \}\
+        .logo-mark \{ display: inline-flex; align-items: center; justify-content: center; background-color: #0f172a; border-radius: 12px; \}\
+        .bg-pattern \{ background-image: radial-gradient(#3063e9 0.5px, transparent 0.5px); background-size: 24px 24px; opacity: 0.05; position: absolute; inset: 0; pointer-events: none; \}\
+        .input-pill \{ width: 100%; padding: 1rem; border-radius: 0.75rem; border: 2px solid #e2e8f0; outline: none; font-weight: 600; transition: all 0.2s; background: white; \}\
+        .input-pill:focus \{ border-color: #3063E9; box-shadow: 0 0 0 4px rgba(48, 99, 233, 0.1); \}\
+        .input-error \{ border-color: #ef4444 !important; \}\
+        \
+        .nav-btn \{ width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: white; border: 1px solid #e5e7eb; color: #6b7280; \}\
+        .nav-btn:hover \{ color: #3063E9; border-color: #3063E9; \}\
+    </style>\
+</head>\
+<body class="p-4 md:p-8 min-h-screen flex flex-col">\
+\
+    <!-- Universal Nav Header -->\
+    <div id="main-nav" class="max-w-5xl w-full mx-auto flex justify-between items-center mb-8 no-print">\
+        <div class="flex items-center gap-3">\
+            <div class="logo-mark w-10 h-10 cursor-pointer shadow-sm hover:scale-105 transition-transform" onclick="navigateTo('admin')">\
+                <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">\
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>\
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>\
+                    <rect x="8" y="5" width="8" height="8"></rect>\
+                </svg>\
+            </div>\
+            <div>\
+                <p class="font-black text-slate-900 tracking-tight leading-tight uppercase">Terminal Mastery</p>\
+                <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Expert Enablement</p>\
+            </div>\
+        </div>\
+        <div class="flex items-center gap-3">\
+            <button onclick="confirmGoHome()" class="nav-btn"><i class="fa-solid fa-house"></i></button>\
+        </div>\
+    </div>\
+\
+    <!-- MAIN VIEWPORT -->\
+    <div id="view-home" class="max-w-5xl w-full mx-auto bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden min-h-[650px] relative flex flex-col justify-center items-center p-12 text-center fade-in">\
+        <div class="bg-pattern"></div>\
+        <div class="logo-mark w-20 h-20 mb-8 shadow-xl relative z-10">\
+            <svg viewBox="0 0 24 24" class="w-10 h-10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>\
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>\
+                <rect x="8" y="5" width="8" height="8"></rect>\
+            </svg>\
+        </div>\
+        <h1 class="text-4xl font-black text-slate-900 mb-4 tracking-tight uppercase italic relative z-10">Terminal Accreditation</h1>\
+        <p class="text-slate-500 max-w-md mx-auto mb-10 text-lg relative z-10">Validate your hardware expertise for UK and DACH regions.</p>\
+        \
+        <div class="w-full max-w-sm space-y-4 relative z-10">\
+            <div class="flex gap-4">\
+                <div class="flex-1">\
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-left mb-1 ml-2">First Name</label>\
+                    <input id="agent-first-name" type="text" placeholder="First Name" class="input-pill">\
+                </div>\
+                <div class="flex-1">\
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-left mb-1 ml-2">Surname</label>\
+                    <input id="agent-surname" type="text" placeholder="Surname" class="input-pill">\
+                </div>\
+            </div>\
+            <div>\
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-left mb-1 ml-2">Assigned Market</label>\
+                <select id="agent-region" class="input-pill appearance-none bg-white">\
+                    <option value="">Select Region...</option>\
+                    <option value="UK">United Kingdom</option>\
+                    <option value="DE">Germany</option>\
+                </select>\
+            </div>\
+            <button onclick="startAccreditation()" class="w-full sumup-blue text-white py-4 rounded-xl font-black text-lg hover:opacity-90 transition-all shadow-lg mt-4">Begin Assessment</button>\
+            <p id="welcome-error" class="text-red-500 text-[10px] font-bold uppercase hidden">Please complete all fields to continue</p>\
+        </div>\
+    </div>\
+\
+    <!-- QUIZ VIEWPORT -->\
+    <div id="view-quiz" class="hidden max-w-5xl w-full mx-auto bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden min-h-[650px] relative p-8 md:p-12 flex flex-col fade-in no-print">\
+        <div class="flex justify-between items-center mb-8">\
+            <div class="flex items-center gap-4">\
+                <button onclick="prevQuestion()" id="btn-back" class="nav-btn"><i class="fa-solid fa-chevron-left"></i></button>\
+                <span id="quiz-progress" class="text-xs font-black text-slate-400 uppercase tracking-widest">Question 1/6</span>\
+                <button onclick="nextQuestion()" id="btn-forward" class="nav-btn"><i class="fa-solid fa-chevron-right"></i></button>\
+            </div>\
+            <div class="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">\
+                <div id="quiz-bar" class="h-full sumup-blue transition-all" style="width: 16%"></div>\
+            </div>\
+        </div>\
+        \
+        <div id="quiz-content" class="flex-grow">\
+            <h2 id="question-text" class="text-2xl font-black text-slate-900 mb-8 leading-tight"></h2>\
+            <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>\
+        </div>\
+\
+        <div id="review-content" class="hidden flex-grow flex flex-col">\
+            <h2 class="text-3xl font-black text-slate-900 mb-2 uppercase italic">Final Validation</h2>\
+            <p class="text-slate-500 mb-8">Confirm your protocols before submitting for accreditation.</p>\
+            <div id="review-list" class="flex-grow overflow-y-auto space-y-3 mb-8 pr-2"></div>\
+        </div>\
+        \
+        <div class="mt-8">\
+            <button id="btn-main-action" onclick="handleMainAction()" class="w-full sumup-blue text-white py-4 rounded-xl font-black text-lg shadow-lg hover:opacity-90 transition-all">Next Question</button>\
+        </div>\
+    </div>\
+\
+    <!-- CERTIFICATE VIEWPORT -->\
+    <div id="view-cert" class="hidden max-w-5xl w-full mx-auto flex flex-col items-center justify-center fade-in text-center py-12">\
+        <div id="certificate-layout" class="w-full max-w-2xl bg-white border-[16px] border-white p-12 rounded-[4rem] shadow-2xl relative">\
+            <div id="cert-status-badge" class="absolute top-8 right-8 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest no-print"></div>\
+            <div class="logo-mark w-14 h-14 mx-auto mb-8">\
+                <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">\
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>\
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>\
+                    <rect x="8" y="5" width="8" height="8"></rect>\
+                </svg>\
+            </div>\
+            <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-2">Accredited Tech Expert</p>\
+            <h3 id="cert-agent-name" class="text-4xl font-black text-slate-900 mb-2 uppercase italic tracking-tighter"></h3>\
+            <p id="cert-agent-region" class="text-xs font-black text-blue-500 uppercase tracking-[0.2em] mb-6"></p>\
+            <p id="cert-outcome-text" class="text-lg text-slate-500 italic mb-10 max-w-md mx-auto"></p>\
+            \
+            <div class="flex justify-between border-t border-slate-100 pt-8 text-left">\
+                <div>\
+                    <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Assessment Score</p>\
+                    <p class="text-2xl font-black text-slate-900" id="cert-final-score">0%</p>\
+                </div>\
+                <div class="text-right">\
+                    <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Enablement Lead</p>\
+                    <p class="text-xs font-bold text-slate-900">Janet Tubritt</p>\
+                    <p class="text-[9px] text-slate-400 italic">European Operations</p>\
+                </div>\
+            </div>\
+        </div>\
+        <div class="mt-12 no-print flex gap-4">\
+            <button onclick="window.print()" class="px-8 py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg"><i class="fa-solid fa-print mr-2"></i> Print Certificate</button>\
+            <button onclick="goHome()" class="px-8 py-4 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold">New Session</button>\
+        </div>\
+    </div>\
+\
+    <!-- ADMIN DASHBOARD VIEWPORT -->\
+    <div id="view-admin" class="hidden max-w-6xl w-full mx-auto fade-in no-print">\
+        <div class="flex justify-between items-center mb-8">\
+            <div>\
+                <h2 class="text-3xl font-black text-slate-900 mb-1 uppercase tracking-tight">Regional Dashboard</h2>\
+                <p class="text-slate-400 text-xs font-black uppercase tracking-widest italic">Live European Operations Telemetry</p>\
+            </div>\
+            <button onclick="navigateTo('home')" class="px-6 py-2 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-colors">\
+                <i class="fa-solid fa-arrow-left mr-2"></i> Return to Hub\
+            </button>\
+        </div>\
+\
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">\
+            <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm text-center">\
+                <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Total Submissions</p>\
+                <p id="stat-total" class="text-5xl font-black text-slate-900">0</p>\
+            </div>\
+            <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm text-center">\
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fleet Pass Rate</p>\
+                <p id="stat-pass" class="text-5xl font-black text-slate-900">0%</p>\
+            </div>\
+            <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm text-center">\
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Avg Proficiency</p>\
+                <p id="stat-avg" class="text-5xl font-black text-slate-900">0%</p>\
+            </div>\
+        </div>\
+\
+        <div class="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">\
+            <table class="w-full text-left">\
+                <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">\
+                    <tr><th class="p-6">Agent Identity</th><th class="p-6">Market</th><th class="p-6 text-center">Outcome</th><th class="p-6 text-right">Validated At</th></tr>\
+                </thead>\
+                <tbody id="admin-rows" class="text-sm font-bold text-slate-600">\
+                    <tr><td colspan="4" class="p-12 text-center text-slate-400 italic">No telemetry detected yet.</td></tr>\
+                </tbody>\
+            </table>\
+        </div>\
+    </div>\
+\
+    <!-- Exit Modal -->\
+    <div id="modal-confirm" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 no-print">\
+        <div class="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center fade-in">\
+            <h3 class="text-2xl font-black text-slate-900 mb-2 uppercase italic tracking-tight">End Session?</h3>\
+            <p class="text-slate-500 mb-8">Unsubmitted progress will be lost. Return to the main menu?</p>\
+            <div class="flex gap-3">\
+                <button onclick="closeModal()" class="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Back</button>\
+                <button onclick="goHome()" class="flex-1 bg-red-500 py-3 rounded-xl font-bold text-white">Exit</button>\
+            </div>\
+        </div>\
+    </div>\
+\
+    <script>\
+        const questionsData = [\
+            \{ \
+                topic: "Reboot Protocol", \
+                q: "The Terminal is stuck on 'Preparing'. What is the official 10-second fix?", \
+                options: [\
+                    \{ t: "Hold Power + Volume Down for 7 seconds", c: true \}, \
+                    \{ t: "Gently shake it to reset the gravity sensor", c: false \}, \
+                    \{ t: "Perform a 'Battery Depletion' hard-drain bypass", c: false \}, \
+                    \{ t: "Trigger a remote firmware push from the cloud", c: false \}\
+                ] \
+            \},\
+            \{ \
+                topic: "Latency Bridging", \
+                q: "A transaction is stuck in a 'Verifying' loop. What is the immediate instruction?", \
+                options: [\
+                    \{ t: "Swipe down and toggle Wi-Fi ON to bridge the gap", c: true \}, \
+                    \{ t: "Blow into the chip reader to remove static", c: false \}, \
+                    \{ t: "Initiate a local network 'Packet Clear' command", c: false \}, \
+                    \{ t: "Instruct merchant to switch to 2.4GHz band only", c: false \}\
+                ] \
+            \},\
+            \{ \
+                topic: "Connectivity", \
+                q: "Merchant has 'No Mobile Data' on the terminal. What is the first check?", \
+                options: [\
+                    \{ t: "Toggle Wi-Fi OFF and verify Data Roaming is active", c: true \}, \
+                    \{ t: "Wave it in the air to catch a better satellite", c: false \}, \
+                    \{ t: "Manually re-configure the APN settings profile", c: false \}, \
+                    \{ t: "Perform a 'SIM Reactivation' sequence", c: false \}\
+                ] \
+            \},\
+            \{ \
+                topic: "Objection Handling", \
+                q: "What is the official pivot for the 'Bulky' device objection?", \
+                options: [\
+                    \{ t: "Focus on Standalone Value: No phone/tethering needed", c: true \}, \
+                    \{ t: "Tell them it's actually for training grip strength", c: false \}, \
+                    \{ t: "Explain the internal thermal cooling requirement", c: false \}, \
+                    \{ t: "Pivot to the 'Heavy Duty' durability certification", c: false \}\
+                ] \
+            \},\
+            \{ \
+                topic: "Anti-Tamper Hardware", \
+                q: "The screen shows 'Security Device Blocked'. What is the process?", \
+                options: [\
+                    \{ t: "Collect S/N and escalate for immediate RMA", c: true \}, \
+                    \{ t: "Put it in a dark room to 'cool down' the sensor", c: false \}, \
+                    \{ t: "Attempt an internal 'Security Pin' reset code", c: false \}, \
+                    \{ t: "Re-seat the internal security modules manually", c: false \}\
+                ] \
+            \},\
+            \{ \
+                topic: "Battery Recovery", \
+                q: "Merchant reports 'Power Failure'. What is the Recovery Charge protocol?", \
+                options: [\
+                    \{ t: "30m charge (original cable) + 10s power hold", c: true \}, \
+                    \{ t: "Sing to the battery to boost its morale", c: false \}, \
+                    \{ t: "Use a high-wattage laptop charger for 5 minutes", c: false \}, \
+                    \{ t: "Drain the device to 0% before attempting recharge", c: false \}\
+                ] \
+            \}\
+        ];\
+\
+        let questions = [];\
+        let currentIdx = 0;\
+        let userAnswers = [];\
+        let reg = \{ fName: "", lName: "", region: "" \};\
+        let activeView = 'home';\
+        let quizMode = 'question';\
+\
+        function navigateTo(viewId) \{\
+            const views = ['home', 'quiz', 'cert', 'admin'];\
+            views.forEach(v => \{\
+                const el = document.getElementById(`view-$\{v\}`);\
+                if (v === viewId) el.classList.remove('hidden');\
+                else el.classList.add('hidden');\
+            \});\
+            activeView = viewId;\
+            if (viewId === 'admin') window.refreshDashboard();\
+        \}\
+\
+        function startAccreditation() \{\
+            const fNameInput = document.getElementById('agent-first-name');\
+            const lNameInput = document.getElementById('agent-surname');\
+            const regionInput = document.getElementById('agent-region');\
+            const errorText = document.getElementById('welcome-error');\
+\
+            if(!fNameInput.value.trim() || !lNameInput.value.trim() || !regionInput.value) \{\
+                errorText.classList.remove('hidden');\
+                [fNameInput, lNameInput, regionInput].forEach(el => !el.value ? el.classList.add('input-error') : el.classList.remove('input-error'));\
+                return;\
+            \}\
+\
+            reg = \{ fName: fNameInput.value.trim(), lName: lNameInput.value.trim(), region: regionInput.value \};\
+            questions = questionsData.map(q => (\{ ...q, options: [...q.options].sort(() => Math.random() - 0.5) \}));\
+            userAnswers = new Array(questions.length).fill(null);\
+            currentIdx = 0;\
+            quizMode = 'question';\
+            \
+            document.getElementById('quiz-content').classList.remove('hidden');\
+            document.getElementById('review-content').classList.add('hidden');\
+            \
+            navigateTo('quiz');\
+            renderQuestion();\
+        \}\
+\
+        function renderQuestion() \{\
+            const q = questions[currentIdx];\
+            document.getElementById('question-text').innerText = q.q;\
+            document.getElementById('quiz-progress').innerText = `Step $\{currentIdx + 1\}/$\{questions.length\}`;\
+            document.getElementById('quiz-bar').style.width = `$\{((currentIdx + 1) / questions.length) * 100\}%`;\
+            \
+            const grid = document.getElementById('options-grid');\
+            grid.innerHTML = '';\
+            q.options.forEach((opt, idx) => \{\
+                const btn = document.createElement('button');\
+                btn.className = `option-card p-5 text-left rounded-2xl border-2 font-bold $\{userAnswers[currentIdx] === idx ? 'selected' : 'border-slate-100 text-slate-700 bg-slate-50'\}`;\
+                btn.innerText = opt.t;\
+                btn.onclick = () => \{ userAnswers[currentIdx] = idx; renderQuestion(); \};\
+                grid.appendChild(btn);\
+            \});\
+\
+            const actionBtn = document.getElementById('btn-main-action');\
+            actionBtn.innerText = currentIdx === questions.length - 1 ? "Review My Choices" : "Next Question";\
+            actionBtn.disabled = userAnswers[currentIdx] === null;\
+            actionBtn.style.opacity = userAnswers[currentIdx] === null ? 0.5 : 1;\
+        \}\
+\
+        function handleMainAction() \{\
+            if (quizMode === 'question') \{\
+                if (currentIdx < questions.length - 1) \{ currentIdx++; renderQuestion(); \}\
+                else showReview();\
+            \} else \{\
+                submitFinal();\
+            \}\
+        \}\
+\
+        function showReview() \{\
+            quizMode = 'review';\
+            document.getElementById('quiz-content').classList.add('hidden');\
+            document.getElementById('review-content').classList.remove('hidden');\
+            document.getElementById('btn-main-action').innerText = "Submit for Accreditation";\
+            \
+            const list = document.getElementById('review-list');\
+            list.innerHTML = questions.map((q, i) => `\
+                <div onclick="goToQuestion($\{i\})" class="p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-slate-100 flex justify-between items-center transition-all group">\
+                    <div class="flex items-center gap-4">\
+                        <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">$\{i+1\}</div>\
+                        <p class="font-bold text-slate-700 text-sm truncate max-w-[200px] md:max-w-md">$\{q.q\}</p>\
+                    </div>\
+                    <span class="text-blue-600 font-black text-[10px] uppercase tracking-widest">Edit</span>\
+                </div>\
+            `).join('');\
+        \}\
+\
+        async function submitFinal() \{\
+            const btn = document.getElementById('btn-main-action');\
+            btn.disabled = true;\
+            btn.innerText = "Finalizing Assessment...";\
+            btn.classList.add('opacity-50');\
+\
+            let correct = 0;\
+            userAnswers.forEach((ansIdx, qIdx) => \{ if (questions[qIdx].options[ansIdx].c) correct++; \});\
+            const score = Math.round((correct / questions.length) * 100);\
+            \
+            await window.submitResult(reg.fName, reg.lName, reg.region, score);\
+\
+            document.getElementById('cert-agent-name').innerText = `$\{reg.fName\} $\{reg.lName\}`;\
+            document.getElementById('cert-agent-region').innerText = `Market: $\{reg.region\}`;\
+            document.getElementById('cert-final-score').innerText = `$\{score\}%`;\
+            \
+            const badge = document.getElementById('cert-status-badge');\
+            const outcome = document.getElementById('cert-outcome-text');\
+            if (score >= 80) \{\
+                badge.innerText = "Certified Expert";\
+                badge.className = "absolute top-8 right-8 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-700 no-print";\
+                outcome.innerText = "Validation protocols successful. Candidate is officially accredited to support the SumUp Terminal hardware fleet.";\
+            \} else \{\
+                badge.innerText = "Threshold Not Met";\
+                badge.className = "absolute top-8 right-8 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 no-print";\
+                outcome.innerText = "Assessment complete. Performance fell below the 80% proficiency threshold. Guided remedial sessions recommended.";\
+            \}\
+            navigateTo('cert');\
+            btn.disabled = false;\
+            btn.innerText = "Submit for Accreditation";\
+            btn.classList.remove('opacity-50');\
+        \}\
+\
+        window.refreshDashboard = () => \{\
+            const res = window.appState.results || [];\
+            document.getElementById('stat-total').innerText = res.length;\
+            const passCount = res.filter(r => r.score >= 80).length;\
+            document.getElementById('stat-pass').innerText = res.length ? Math.round((passCount / res.length) * 100) + "%" : "0%";\
+            const avg = res.length ? Math.round(res.reduce((a, b) => a + (b.score || 0), 0) / res.length) : 0;\
+            document.getElementById('stat-avg').innerText = avg + "%";\
+            \
+            const rows = document.getElementById('admin-rows');\
+            if (!res.length) \{ rows.innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-400 italic">No telemetry detected yet.</td></tr>'; return; \}\
+            \
+            rows.innerHTML = res.map(r => \{\
+                const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString([], \{ dateStyle: 'short', timeStyle: 'short' \}) : 'Processing...';\
+                return `\
+                <tr class="border-t border-slate-50 hover:bg-slate-50/50 transition-colors">\
+                    <td class="p-6">\
+                        <p class="font-black text-slate-800">$\{r.firstName || 'User'\} $\{r.surname || ''\}</p>\
+                        <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Ref: $\{r.id ? r.id.slice(-6).toUpperCase() : '...'\}</p>\
+                    </td>\
+                    <td class="p-6 font-black text-slate-400">$\{r.region || 'UK'\}</td>\
+                    <td class="p-6 text-center">\
+                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase $\{r.score >= 80 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'\}">$\{r.score\}%</span>\
+                    </td>\
+                    <td class="p-6 text-right text-slate-400 text-[10px] font-bold uppercase">$\{dateStr\}</td>\
+                </tr>\
+            `\}).join('');\
+        \};\
+\
+        function nextQuestion() \{ if (userAnswers[currentIdx] !== null && currentIdx < questions.length - 1) \{ currentIdx++; renderQuestion(); \} \}\
+        function prevQuestion() \{ if (currentIdx > 0) \{ currentIdx--; renderQuestion(); \} \}\
+        function goToQuestion(idx) \{ \
+            currentIdx = idx; \
+            quizMode = 'question'; \
+            document.getElementById('quiz-content').classList.remove('hidden'); \
+            document.getElementById('review-content').classList.add('hidden'); \
+            renderQuestion(); \
+        \}\
+        function confirmGoHome() \{ if (activeView === 'quiz') document.getElementById('modal-confirm').classList.remove('hidden'); else goHome(); \}\
+        function closeModal() \{ document.getElementById('modal-confirm').classList.add('hidden'); \}\
+        \
+        function goHome() \{\
+            closeModal();\
+            navigateTo('home');\
+            document.getElementById('agent-first-name').value = "";\
+            document.getElementById('agent-surname').value = "";\
+            document.getElementById('agent-region').value = "";\
+            document.getElementById('welcome-error').classList.add('hidden');\
+            [...document.querySelectorAll('.input-error')].forEach(el => el.classList.remove('input-error'));\
+            currentIdx = 0;\
+            userAnswers = [];\
+            document.getElementById('quiz-bar').style.width = '0%';\
+        \}\
+    </script>\
+</body>\
+</html>}
